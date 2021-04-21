@@ -183,8 +183,13 @@ void part_worker(int id){
 			}
 		}
 		cout << "Updated Buffer State: " << Global_buffer << endl;
-		cout << "Update Load Order: " << load_order << endl;
-		cout << endl;
+		cout << "Update Load Order: " << load_order << endl<<endl;
+
+		while(has_left(load_order)){
+			partW.wait(u1);
+			productW.notify_one();
+		}
+
 
 
 
@@ -232,6 +237,11 @@ void product_worker(int id){
 		}
 		cout<<"Updated pickup order: "<<pickup_order<<endl;
 		cout << "Updated Buffer State: " << Global_buffer << endl<<endl;
+		while(has_left(pickup_order)){
+			productW.wait(u1);
+			partW.notify_one();
+		}
+
 	}
 
 
