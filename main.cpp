@@ -15,6 +15,8 @@ const vector<int> move_time{20, 20, 30, 30,40};
 const vector<int> prodW_assemble_time{60, 60, 70, 70, 80};
 const vector<string> status_string{"New Load Order","New Pickup Order",
 								   "Wakeup-Notified","Wakeup-Timeout"};
+const int MaxTimePart{1600};
+const int MaxTimeProduct{2000};
 
 mutex m1;
 condition_variable partW, productW;
@@ -137,16 +139,16 @@ bool is_notEnough(const vector<int>& buffer_state, const vector<int>& order){
 	return false;
 }
 
-void time_exceed(int wait_time){//to set a timer
+bool time_exceed(int wait_time){//to set a timer
 	auto begin_time = chrono::system_clock::now();
 	while(1){
 		if(chrono::system_clock::now()>begin_time+chrono::microseconds (wait_time)){
-			auto elapsed_time = chrono::system_clock::now()-begin_time;
-			cout << "elapased time: " << elapsed_time.count();
+//			auto elapsed_time = chrono::system_clock::now()-begin_time;
+//			cout << "elapased time: " << elapsed_time.count();
 			break;
 		}
 	}
-
+	return true;
 }
 void part_worker(int id)
 {
@@ -199,7 +201,7 @@ void part_worker(int id)
 		cout << "Updated Buffer State: " << Global_buffer << endl;
 		cout << "Update Load Order: " << load_order << endl;
 		vector<int> copy_Global = Global_buffer;
-		auto myPredicate = [load_order, copy_Global] {
+		auto myPredicate = [load_order, &copy_Global] {
 		  for (int i = 0; i<5; i++) {
 			  if (load_order[i]!=0) {
 				  if (copy_Global[i]<restraints[i]) {
@@ -213,9 +215,11 @@ void part_worker(int id)
 		  return false;
 		};
 		cout << "predicate is: " << myPredicate() << endl << endl;
+		int copy_MaxTimePart = MaxTimePart;
+		auto begin_time = chrono::system_clock::now();
+
 		while (has_left(load_order)) {
-			//cout << 1;
-			partW.wait_for(u1, chrono::microseconds(800), myPredicate);
+			partW.wait_for(u1, chrono::microseconds(copy_MaxTimePart), myPredicate);
 			break;
 		}
 
@@ -277,7 +281,18 @@ int main()
 {
 //	part_worker(1);
 //	product_worker(1);
-	time_exceed(800);
+	vector<int> order{ 1, 1, 1 };
+	auto lambda=[order]{
+	  cout << order;
+	};
+	order={222,2};
+	lambda();
+	while (time_exceed(80000000000000000)==true) {
+		cout<<1;
+		break;
+
+	}
+
 //	const int m = 20, n = 16; //m: number of Part Workers
 ////n: number of Product Workers
 ////m>n
