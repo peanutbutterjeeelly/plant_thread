@@ -136,18 +136,32 @@ bool is_notEnough(const vector<int>& buffer_state, const vector<int>& order){
 	}
 	return false;
 }
-void part_worker(int id){
+
+void time_exceed(int wait_time){//to set a timer
+	auto begin_time = chrono::system_clock::now();
+	while(1){
+		if(chrono::system_clock::now()>begin_time+chrono::microseconds (wait_time)){
+			auto elapsed_time = chrono::system_clock::now()-begin_time;
+			cout << "elapased time: " << elapsed_time.count();
+			break;
+		}
+	}
+
+}
+void part_worker(int id)
+{
+
 	vector<int> load_order(5);
-	for (int i = 0; i<5;i++) {//5 interations
+	for (int i = 0; i<5; i++) {//5 interations
 		unique_lock<mutex> u1(m1);
 		cout << "Iteration " << i << endl;
 		cout << "Part Worker ID: " << id << endl;
 		vector<int> save_loadOrder = load_order;
 
 		load_order = generate_load_order(load_order);
-		for (int i = 0; i<5;i++) {
+		for (int i = 0; i<5; i++) {
 			//to manufacture parts
-			if(load_order[i]!=save_loadOrder[i]){
+			if (load_order[i]!=save_loadOrder[i]) {
 				int sleep_time = (load_order[i]-save_loadOrder[i])*partW_manufacture_time[i];
 				this_thread::sleep_for(chrono::microseconds(sleep_time));
 			}
@@ -155,26 +169,26 @@ void part_worker(int id){
 		vector<int> tmp;
 		cout << "Load Order: " << load_order << endl;
 		cout << "Buffer State: " << Global_buffer << endl;
-		if(is_overFlow(Global_buffer,load_order)==false){
+		if (is_overFlow(Global_buffer, load_order)==false) {
 			Global_buffer = Global_buffer+load_order;
-			for (int i = 0; i<5;i++) {
-				if(load_order[i]!=0){
+			for (int i = 0; i<5; i++) {
+				if (load_order[i]!=0) {
 					int sleep_time = load_order[i]*move_time[i];
 					this_thread::sleep_for(chrono::microseconds(sleep_time));
 				}
 			}
-			load_order={0,0,0,0,0};
+			load_order = { 0, 0, 0, 0, 0 };
 		}
-		else{//overflow_
+		else {//overflow_
 			tmp = load_order+Global_buffer;
-			for (int i = 0; i<5;i++) {
-				if(tmp[i]>restraints[i]){
+			for (int i = 0; i<5; i++) {
+				if (tmp[i]>restraints[i]) {
 					int sleep_time = (restraints[i]-Global_buffer[i])*move_time[i];
 					this_thread::sleep_for(chrono::microseconds(sleep_time));
 					Global_buffer[i] = restraints[i];
 					load_order[i] = tmp[i]-restraints[i];
 				}
-				else{
+				else {
 					int sleep_time = (tmp[i]-Global_buffer[i])*move_time[i];
 					this_thread::sleep_for(chrono::microseconds(sleep_time));
 					Global_buffer[i] = tmp[i];
@@ -183,15 +197,27 @@ void part_worker(int id){
 			}
 		}
 		cout << "Updated Buffer State: " << Global_buffer << endl;
-		cout << "Update Load Order: " << load_order << endl<<endl;
-
-		while(has_left(load_order)){
-			partW.wait(u1);
-			productW.notify_one();
+		cout << "Update Load Order: " << load_order << endl;
+		vector<int> copy_Global = Global_buffer;
+		auto myPredicate = [load_order, copy_Global] {
+		  for (int i = 0; i<5; i++) {
+			  if (load_order[i]!=0) {
+				  if (copy_Global[i]<restraints[i]) {
+					  return true;
+				  }
+				  else {
+					  continue;
+				  }
+			  }
+		  }
+		  return false;
+		};
+		cout << "predicate is: " << myPredicate() << endl << endl;
+		while (has_left(load_order)) {
+			//cout << 1;
+			partW.wait_for(u1, chrono::microseconds(800), myPredicate);
+			break;
 		}
-
-
-
 
 	}
 }
@@ -251,26 +277,44 @@ int main()
 {
 //	part_worker(1);
 //	product_worker(1);
-	const int m = 20, n = 16; //m: number of Part Workers
-//n: number of Product Workers
-//m>n
-	thread partW[m];
-	thread prodW[n];
-	for (int i = 0; i < n; i++) {
-		partW[i] = thread(part_worker, i);
-		prodW[i] = thread (product_worker, i);
-	}
-	for (int i = n; i < m; i++) {
-		partW[i] = thread(part_worker, i);
-	}
-	/* Join the threads to the main threads */
-	for (int i = 0; i < n; i++) {
-		partW[i].join();
-		prodW[i].join();
-	}
-	for (int i = n; i < m; i++) {
-		partW[i].join();
-	}
-	cout << "Finish!" << endl;
-	return 0;
+	time_exceed(800);
+//	const int m = 20, n = 16; //m: number of Part Workers
+////n: number of Product Workers
+////m>n
+//	vector<int> order{ 1, 1, 1, 1, 1 };
+//	vector<int> buffer{ 5, 5, 4, 3, 3 };
+//	auto myPredicate = [order, buffer] {
+//	  for (int i = 0; i<5; i++) {
+//		  if (order[i]!=0) {
+//			  if (buffer[i]<restraints[i]) {
+//				  return true;
+//			  }
+//			  else {
+//				  continue;
+//			  }
+//		  }
+//	  }
+//	  return false;
+//	};
+//	cout << myPredicate() << endl;
+//	thread partW[m];
+//	thread prodW[n];
+//	for (int i = 0; i < n; i++) {
+//		partW[i] = thread(part_worker, i);
+//		prodW[i] = thread (product_worker, i);
+//	}
+//	for (int i = n; i < m; i++) {
+//		partW[i] = thread(part_worker, i);
+//	}
+//	/* Join the threads to the main threads */
+//	for (int i = 0; i < n; i++) {
+//		partW[i].join();
+//		prodW[i].join();
+//	}
+//	for (int i = n; i < m; i++) {
+//		partW[i].join();
+//	}
+//	cout << "Finish!" << endl;
+//	return 0;
+
 }
