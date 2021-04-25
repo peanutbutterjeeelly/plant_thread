@@ -168,28 +168,30 @@ bool productW_pred(){
 	}
 	return false;
 }
-bool time_exceed(int wait_time){//to set a timer
-	auto begin_time = chrono::system_clock::now();
-	while(1){
-		if(chrono::system_clock::now()>begin_time+chrono::microseconds (wait_time)){
-//			auto elapsed_time = chrono::system_clock::now()-begin_time;
-//			cout << "elapased time: " << elapsed_time.count();
-			break;
-		}
-	}
-	return true;
-}
+//bool time_exceed(int wait_time){//to set a timer
+//	auto begin_time = chrono::system_clock::now();
+//	while(1){
+//		if(chrono::system_clock::now()>begin_time+chrono::microseconds (wait_time)){
+////			auto elapsed_time = chrono::system_clock::now()-begin_time;
+////			cout << "elapased time: " << elapsed_time.count();
+//			break;
+//		}
+//	}
+//	return true;
+//}
 void part_worker(int id)
 {
 
 	vector<int> load_order(5);
 	for (int i = 0; i<5; i++) {//5 interations
 		unique_lock<mutex> u1(m1);
-		cout << "Iteration " << i << endl;
-		cout << "Part Worker ID: " << id << endl;
+//		cout << "Iteration " << i << endl;
+//		cout << "Part Worker ID: " << id << endl;
 		vector<int> save_loadOrder = load_order;
 
 		load_order = generate_load_order(load_order);
+		vector<int> printout_loadOrder = load_order;
+		vector<int> printout_Buffer = Global_buffer;
 		for (int i = 0; i<5; i++) {
 			//to manufacture parts
 			if (load_order[i]!=save_loadOrder[i]) {
@@ -198,8 +200,8 @@ void part_worker(int id)
 			}
 		}
 		vector<int> tmp;
-		cout << "Load Order: " << load_order << endl;
-		cout << "Buffer State: " << Global_buffer << endl;
+//		cout << "Load Order: " << load_order << endl;
+//		cout << "Buffer State: " << Global_buffer << endl;
 		if (is_overFlow(Global_buffer, load_order)==false) {
 			Global_buffer = Global_buffer+load_order;
 			for (int i = 0; i<5; i++) {
@@ -229,20 +231,30 @@ void part_worker(int id)
 		}
 //		cout << "Updated Buffer State: " << Global_buffer << endl;
 //		cout << "Update Load Order: " << load_order << endl;
+		auto myPred=[&load_order]{
+		  for (int i = 0; i<5;i++) {
+		  	if(load_order[i]!=0&&Global_buffer[i]<restraints[i]){
+		  		return true;
+		  	}
+		  }
+		  return false;
+		};
 		int copy_MaxTimePart = MaxTimePart;
 		if (has_left(load_order)) {
 			auto begin_time = chrono::system_clock::now();//start the timer
 			while (1) {
 				auto cycle_begin = chrono::system_clock::now();
-				if (has_left(load_order) && partW.wait_for(u1, chrono::microseconds(copy_MaxTimePart), partW_pred)) {
+				if (/*has_left(load_order) &&*/ partW.wait_for(u1, chrono::microseconds(copy_MaxTimePart), myPred)) {
 					//while load_order is not empty also part_worker is not blocked when
 					//global_buffer has avail spot to place part
-					//productW.notify_all();
+//					cout << "something running partWorker" << endl;
+					productW.notify_all();
 					for (int i = 0; i<5;i++) {
 						if(load_order[i]>0&&Global_buffer[i]<restraints[i]){
 							//if we could possibly put one part in
 							--load_order[i];
 							++Global_buffer[i];
+
 							this_thread::sleep_for(chrono::microseconds(move_time[i]));
 						}
 					}
@@ -258,14 +270,18 @@ void part_worker(int id)
 				}
 			}
 		}
-//		cout << "Updated Buffer State: " << Global_buffer << endl;
-//		cout << "Update Load Order: " << load_order << endl<<endl;
+
 		for (int i = 0; i<5;i++) {
 			//move the remain parts back
 			if(load_order[i]!=0){
 				this_thread::sleep_for(chrono::microseconds(load_order[i]*move_time[i]));
 			}
 		}
+		cout << "Part_worker ID: " << id << ", iteration " << i << endl;
+		cout << "Load_order is: " << printout_loadOrder << endl;
+		cout << "Buffer State: " << printout_Buffer << endl;
+		cout << "Updated Buffer State: " << Global_buffer << endl;
+		cout << "Update Load Order: " << load_order << endl << endl;
 
 	}
 }
@@ -273,13 +289,15 @@ void product_worker(int id){
 	vector<int> pickup_order(5);
 	for (int i = 0; i<5;i++) {
 		unique_lock<mutex> u1(m1);
-		cout << "Iteration " << i << endl;
-		cout << "Product Worker ID: " << id << endl;
+//		cout << "Iteration " << i << endl;
+//		cout << "Product Worker ID: " << id << endl;
 		vector<int> save_pickupOrder = pickup_order;
 
 		pickup_order = generate_pickup_order(pickup_order);
-		cout<<"before curr_pickupOrder is: "<<pickup_order<<endl;
-		cout << "before global_buffer is: " << Global_buffer << endl;
+		vector<int> printout_pickupOrder = pickup_order;
+		vector<int> printout_Buffer = Global_buffer;
+//		cout<<"Pickup Order: "<<pickup_order<<endl;
+//		cout << "Buffer State: " << Global_buffer << endl;
 		vector<int> tmp;
 		if(is_notEnough(Global_buffer,pickup_order)==false){
 			Global_buffer = Global_buffer-pickup_order;
@@ -309,23 +327,29 @@ void product_worker(int id){
 				}
 			}
 		}
-		cout<<"Updated pickup order: "<<pickup_order<<endl;
-		cout << "Updated Buffer State: " << Global_buffer << endl<<endl;
-//		while(has_left(pickup_order)){
-//			productW.wait(u1);
-//			partW.notify_one();
-//		}
+//		cout<<"Updated pickup order: "<<pickup_order<<endl;
+//		cout << "Updated Buffer State: " << Global_buffer << endl<<endl;
+		auto mypred=[&pickup_order]{
+		  for (int i = 0; i<5;i++) {
+		  	if(pickup_order[i]>0&&Global_buffer[i]>0){
+		  		return true;
+		  	}
+		  }
+		  return false;
+		};
 		int copy_MaxTimeProduct = MaxTimeProduct;
 		if(has_left(pickup_order)){
 			auto begin_time = chrono::system_clock::now();
 			while(1){
 				auto cycle_begin = chrono::system_clock::now();
-				if(has_left(pickup_order)&&productW.wait_for(u1,chrono::microseconds(copy_MaxTimeProduct),productW_pred)){
-					//partW.notify_all()
+				if(/*has_left(pickup_order)&&*/productW.wait_for(u1,chrono::microseconds(copy_MaxTimeProduct),mypred)){
+					partW.notify_all();
+//					cout << "something running prodw" << endl;
 					for (int i = 0; i<5;i++) {
 						if(pickup_order[i]>0&&Global_buffer[i]>0){
 							--pickup_order[i];
 							--Global_buffer[i];
+
 							this_thread::sleep_for(chrono::microseconds(move_time[i]+prodW_assemble_time[i]));
 						}
 					}
@@ -340,37 +364,22 @@ void product_worker(int id){
 				}
 			}
 		}
+		cout << "Product_worker ID: " << id << ", itertaion " << i << endl;
+		cout<<"Pickup Order: "<<printout_pickupOrder<<endl;
+		cout << "Buffer State: " << printout_Buffer << endl;
+		cout<<"Updated pickup order: "<<pickup_order<<endl;
+		cout << "Updated Buffer State: " << Global_buffer << endl<<endl;
 
 	}
 
+	//pickup move back time?
 
 
 }
 int main()
 {
-//	part_worker(1);
-//	product_worker(1);
-
-
 	const int m = 20, n = 16; //m: number of Part Workers
-//n: number of Product Workers
-//m>n
-//	vector<int> order{ 1, 1, 1, 1, 1 };
-//	vector<int> buffer{ 5, 5, 4, 3, 3 };
-//	auto myPredicate = [order, buffer] {
-//	  for (int i = 0; i<5; i++) {
-//		  if (order[i]!=0) {
-//			  if (buffer[i]<restraints[i]) {
-//				  return true;
-//			  }
-//			  else {
-//				  continue;
-//			  }
-//		  }
-//	  }
-//	  return false;
-//	};
-//	cout << myPredicate() << endl;
+
 	thread partW[m];
 	thread prodW[n];
 	for (int i = 0; i < n; i++) {
