@@ -121,6 +121,14 @@ bool is_theSame(const vector<int>& vec1, const vector<int>& vec2)
 	}
 	return true;
 }
+bool is_initial(const vector<int>& checking_vec){
+	for(auto const&i: checking_vec){
+		if(i!=0){
+			return false;
+		}
+	}
+	return true;
+}
 bool is_overFlow(const vector<int>& order, const vector<int>& buffer_state){
 	vector<int> res=order+buffer_state;
 	for(int i=0;i<order.size();i++){
@@ -180,13 +188,14 @@ bool is_notEnough(const vector<int>& buffer_state, const vector<int>& order){
 //	}
 //	return true;
 //}
+auto start_tp = chrono::steady_clock::now();
 void part_worker(int id)
 {
 
 	vector<int> load_order(5);
 	for (int i = 0; i<5; i++) {//5 interations
 		unique_lock<mutex> u1(m1);
-		auto iteration_begin = chrono::system_clock::now();
+//		auto iteration_begin = chrono::system_clock::now();
 //		cout << "Iteration " << i << endl;
 //		cout << "Part Worker ID: " << id << endl;
 		vector<int> save_loadOrder = load_order;
@@ -245,10 +254,10 @@ void part_worker(int id)
 		};
 		int copy_MaxTimePart = MaxTimePart;
 		if (has_left(load_order)) {
-			auto begin_time = chrono::system_clock::now();//start the timer
+			auto begin_time = chrono::steady_clock::now();//start the timer
 			while (1) {
-				auto cycle_begin = chrono::system_clock::now();
-				if (/*has_left(load_order) &&*/ partW.wait_for(u1, chrono::microseconds(copy_MaxTimePart), myPred)) {
+				auto cycle_begin = chrono::steady_clock::now();
+				if (has_left(load_order) && partW.wait_for(u1, chrono::microseconds(copy_MaxTimePart), myPred)) {
 					//while load_order is not empty also part_worker is not blocked when
 					//global_buffer has avail spot to place part
 //					cout << "something running partWorker" << endl;
@@ -263,12 +272,12 @@ void part_worker(int id)
 						}
 					}
 				}
-				auto cycle_end = chrono::system_clock::now();
+				auto cycle_end = chrono::steady_clock::now();
 				auto cycle_time = cycle_end-cycle_begin;
 				auto cycle_elapsed = chrono::duration_cast<chrono::microseconds>(cycle_time);
 				copy_MaxTimePart -= cycle_elapsed.count();
 				//cout << "this cycle time: " << copy_MaxTimePart << endl;
-				if (chrono::system_clock::now()>begin_time+chrono::microseconds(MaxTimePart)) {
+				if (chrono::steady_clock::now()>begin_time+chrono::microseconds(MaxTimePart)) {
 					//timeout, break
 					break;
 				}
@@ -280,12 +289,19 @@ void part_worker(int id)
 				this_thread::sleep_for(chrono::microseconds(load_order[i]*move_time[i]));
 			}
 		}
-		auto iteration_end = chrono::system_clock::now();
-		auto iteration_time= iteration_end-iteration_begin;
-		auto iteration_elapsed = chrono::duration_cast<chrono::seconds>(iteration_time);
-		cur_time += iteration_elapsed.count();
+//		auto iteration_end = chrono::system_clock::now();
+//		auto iteration_time= iteration_end-iteration_begin;
+//		auto iteration_elapsed = chrono::duration_cast<chrono::seconds>(iteration_time);
+//		cur_time += iteration_elapsed.count();
+		auto current_tp = chrono::steady_clock::now();
+		cout << "Current time: " << chrono::duration_cast<chrono::microseconds>(current_tp-start_tp).count()<<"microseconds"<< endl;
 		cout << "Part_worker ID: " << id << ", iteration " << i << endl;
-		cout << "Current time: " << cur_time << endl;
+		if(is_initial(save_loadOrder)){
+			cout << "Status: " << status_string[0] << endl;
+		}
+		else{
+			cout << "Status: " << status_string[0] << " from Partial Order " << save_loadOrder << endl;
+		}
 		cout << "Load_order is: " << printout_loadOrder << endl;
 		cout << "Buffer State: " << printout_Buffer << endl;
 		cout << "Updated Buffer State: " << Global_buffer << endl;
@@ -296,7 +312,7 @@ void product_worker(int id){
 	vector<int> pickup_order(5);
 	for (int i = 0; i<5;i++) {
 		unique_lock<mutex> u1(m1);
-		auto iteration_begin = chrono::system_clock::now();
+//		auto iteration_begin = chrono::system_clock::now();
 //		cout << "Iteration " << i << endl;
 //		cout << "Product Worker ID: " << id << endl;
 		vector<int> save_pickupOrder = pickup_order;
@@ -347,10 +363,10 @@ void product_worker(int id){
 		};
 		int copy_MaxTimeProduct = MaxTimeProduct;
 		if(has_left(pickup_order)){
-			auto begin_time = chrono::system_clock::now();
+			auto begin_time = chrono::steady_clock::now();
 			while(1){
-				auto cycle_begin = chrono::system_clock::now();
-				if(/*has_left(pickup_order)&&*/productW.wait_for(u1,chrono::microseconds(copy_MaxTimeProduct),mypred)){
+				auto cycle_begin = chrono::steady_clock::now();
+				if(has_left(pickup_order)&&productW.wait_for(u1,chrono::microseconds(copy_MaxTimeProduct),mypred)){
 					partW.notify_all();
 //					cout << "something running prodw" << endl;
 					for (int i = 0; i<5;i++) {
@@ -362,22 +378,23 @@ void product_worker(int id){
 						}
 					}
 				}
-				auto cycle_end = chrono::system_clock::now();
+				auto cycle_end = chrono::steady_clock::now();
 				auto cycle_time = cycle_end-cycle_begin;
 				auto cycle_elapsed = chrono::duration_cast<chrono::microseconds>(cycle_time);
 				copy_MaxTimeProduct -= cycle_elapsed.count();
 
-				if(chrono::system_clock::now()>begin_time+chrono::microseconds(MaxTimeProduct)){
+				if(chrono::steady_clock::now()>begin_time+chrono::microseconds(MaxTimeProduct)){
 					break;
 				}
 			}
 		}
-		auto iteration_end = chrono::system_clock::now();
-		auto iteration_time= iteration_end-iteration_begin;
-		auto iteration_elapsed = chrono::duration_cast<chrono::seconds>(iteration_time);
-		cur_time += iteration_elapsed.count();
+//		auto iteration_end = chrono::system_clock::now();
+//		auto iteration_time= iteration_end-iteration_begin;
+//		auto iteration_elapsed = chrono::duration_cast<chrono::seconds>(iteration_time);
+//		cur_time += iteration_elapsed.count();
+		auto current_tp = chrono::steady_clock::now();
+		cout << "Current time: " << chrono::duration_cast<chrono::microseconds>(current_tp-start_tp).count()<<"microseconds"<< endl;
 		cout << "Product_worker ID: " << id << ", itertaion " << i << endl;
-		cout << "Current time: " << cur_time << endl;
 		cout<<"Pickup Order: "<<printout_pickupOrder<<endl;
 		cout << "Buffer State: " << printout_Buffer << endl;
 		cout<<"Updated pickup order: "<<pickup_order<<endl;
