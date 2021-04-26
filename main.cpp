@@ -8,6 +8,7 @@
 #include<string>
 #include <ctime>
 using namespace std;
+int cur_time = 0;
 vector<int> Global_buffer(5);
 const vector<int> restraints{5,5,4,3,3};
 const vector<int> partW_manufacture_time{50, 50, 60, 60, 70};
@@ -138,36 +139,36 @@ bool is_notEnough(const vector<int>& buffer_state, const vector<int>& order){
 	}
 	return false;
 }
-bool partW_pred(){
-	vector<int> check;
-	for (int i = 0; i<5;i++) {
-		if(Global_buffer[i]==restraints[i])
-			check.push_back(i);
-		//cannot be put in, find those slots are full
-	}
-	for(auto const &i:check){
-		//those slots are avail, return true
-		if(Global_buffer[i]<restraints[i]){
-			return true;
-		}
-	}
-	return false;
-}
-bool productW_pred(){
-	vector<int> check;
-	for (int i = 0; i<5;i++) {
-		if(Global_buffer[i]==0){
-			//where cannot withdraw anymore
-			check.push_back(i);
-		}
-	}
-	for(auto const&i:check){
-		if (Global_buffer[i]>0) {
-			return true;
-		}
-	}
-	return false;
-}
+//bool partW_pred(){
+//	vector<int> check;
+//	for (int i = 0; i<5;i++) {
+//		if(Global_buffer[i]==restraints[i])
+//			check.push_back(i);
+//		//cannot be put in, find those slots are full
+//	}
+//	for(auto const &i:check){
+//		//those slots are avail, return true
+//		if(Global_buffer[i]<restraints[i]){
+//			return true;
+//		}
+//	}
+//	return false;
+//}
+//bool productW_pred(){
+//	vector<int> check;
+//	for (int i = 0; i<5;i++) {
+//		if(Global_buffer[i]==0){
+//			//where cannot withdraw anymore
+//			check.push_back(i);
+//		}
+//	}
+//	for(auto const&i:check){
+//		if (Global_buffer[i]>0) {
+//			return true;
+//		}
+//	}
+//	return false;
+//}
 //bool time_exceed(int wait_time){//to set a timer
 //	auto begin_time = chrono::system_clock::now();
 //	while(1){
@@ -185,6 +186,7 @@ void part_worker(int id)
 	vector<int> load_order(5);
 	for (int i = 0; i<5; i++) {//5 interations
 		unique_lock<mutex> u1(m1);
+		auto iteration_begin = chrono::system_clock::now();
 //		cout << "Iteration " << i << endl;
 //		cout << "Part Worker ID: " << id << endl;
 		vector<int> save_loadOrder = load_order;
@@ -212,6 +214,8 @@ void part_worker(int id)
 			}
 			load_order = { 0, 0, 0, 0, 0 };
 		}
+		//
+
 		else {//overflow_
 			tmp = load_order+Global_buffer;
 			for (int i = 0; i<5; i++) {
@@ -270,25 +274,29 @@ void part_worker(int id)
 				}
 			}
 		}
-
 		for (int i = 0; i<5;i++) {
 			//move the remain parts back
 			if(load_order[i]!=0){
 				this_thread::sleep_for(chrono::microseconds(load_order[i]*move_time[i]));
 			}
 		}
+		auto iteration_end = chrono::system_clock::now();
+		auto iteration_time= iteration_end-iteration_begin;
+		auto iteration_elapsed = chrono::duration_cast<chrono::seconds>(iteration_time);
+		cur_time += iteration_elapsed.count();
 		cout << "Part_worker ID: " << id << ", iteration " << i << endl;
+		cout << "Current time: " << cur_time << endl;
 		cout << "Load_order is: " << printout_loadOrder << endl;
 		cout << "Buffer State: " << printout_Buffer << endl;
 		cout << "Updated Buffer State: " << Global_buffer << endl;
 		cout << "Update Load Order: " << load_order << endl << endl;
-
 	}
 }
 void product_worker(int id){
 	vector<int> pickup_order(5);
 	for (int i = 0; i<5;i++) {
 		unique_lock<mutex> u1(m1);
+		auto iteration_begin = chrono::system_clock::now();
 //		cout << "Iteration " << i << endl;
 //		cout << "Product Worker ID: " << id << endl;
 		vector<int> save_pickupOrder = pickup_order;
@@ -364,17 +372,18 @@ void product_worker(int id){
 				}
 			}
 		}
+		auto iteration_end = chrono::system_clock::now();
+		auto iteration_time= iteration_end-iteration_begin;
+		auto iteration_elapsed = chrono::duration_cast<chrono::seconds>(iteration_time);
+		cur_time += iteration_elapsed.count();
 		cout << "Product_worker ID: " << id << ", itertaion " << i << endl;
+		cout << "Current time: " << cur_time << endl;
 		cout<<"Pickup Order: "<<printout_pickupOrder<<endl;
 		cout << "Buffer State: " << printout_Buffer << endl;
 		cout<<"Updated pickup order: "<<pickup_order<<endl;
 		cout << "Updated Buffer State: " << Global_buffer << endl<<endl;
-
 	}
-
 	//pickup move back time?
-
-
 }
 int main()
 {
