@@ -276,7 +276,7 @@ void part_worker(int id)
 				auto cycle_time = cycle_end-cycle_begin;
 				auto cycle_elapsed = chrono::duration_cast<chrono::microseconds>(cycle_time);
 				copy_MaxTimePart -= cycle_elapsed.count();
-				//cout << "this cycle time: " << copy_MaxTimePart << endl;
+				//cout << "cycle_elapsed.count() " << cycle_elapsed.count()<< endl;
 				if (chrono::steady_clock::now()>begin_time+chrono::microseconds(MaxTimePart)) {
 					//timeout, break
 					break;
@@ -302,6 +302,7 @@ void part_worker(int id)
 		else{
 			cout << "Status: " << status_string[0] << " from Partial Order " << save_loadOrder << endl;
 		}
+		cout << "Accumulated wait time: " << MaxTimePart-copy_MaxTimePart << endl;
 		cout << "Load_order is: " << printout_loadOrder << endl;
 		cout << "Buffer State: " << printout_Buffer << endl;
 		cout << "Updated Buffer State: " << Global_buffer << endl;
@@ -394,6 +395,13 @@ void product_worker(int id){
 //		cur_time += iteration_elapsed.count();
 		auto current_tp = chrono::steady_clock::now();
 		cout << "Current time: " << chrono::duration_cast<chrono::microseconds>(current_tp-start_tp).count()<<"microseconds"<< endl;
+		if(is_initial(save_pickupOrder)){
+			cout << "Status: " << status_string[0] << endl;
+		}
+		else{
+			cout << "Status: " << status_string[0] << " from Partial Order " << save_pickupOrder << endl;
+		}
+		cout << "Accumulated wait time: " << MaxTimeProduct-copy_MaxTimeProduct << endl;
 		cout << "Product_worker ID: " << id << ", itertaion " << i << endl;
 		cout<<"Pickup Order: "<<printout_pickupOrder<<endl;
 		cout << "Buffer State: " << printout_Buffer << endl;
