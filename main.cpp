@@ -253,6 +253,7 @@ void part_worker(int id)
 		  return false;
 		};
 		int copy_MaxTimePart = MaxTimePart;
+		vector<int> save_maxDeliver = load_order;
 		if (has_left(load_order)) {
 			auto begin_time = chrono::steady_clock::now();//start the timer
 			while (1) {
@@ -297,10 +298,19 @@ void part_worker(int id)
 		cout << "Current time: " << chrono::duration_cast<chrono::microseconds>(current_tp-start_tp).count()<<"microseconds"<< endl;
 		cout << "Part_worker ID: " << id << ", iteration " << i << endl;
 		if(is_initial(save_loadOrder)){
-			cout << "Status: " << status_string[0] << endl;
+			cout << "Status: " << status_string[0]<<" from Scratch " << endl;
 		}
 		else{
 			cout << "Status: " << status_string[0] << " from Partial Order " << save_loadOrder << endl;
+		}
+		if(is_theSame(load_order,save_maxDeliver)&&has_left(load_order)){
+			//meaning that there is no change after entering the wait_for
+			//so it must be timed out
+			cout << "Status: " << status_string[3] << endl;
+		}
+		else if(!is_theSame(load_order,save_maxDeliver)&&has_left(load_order)){
+			//two vectors are different, the max_deliver and final pick up
+			cout << "Status: " << status_string[2] << endl;
 		}
 		cout << "Accumulated wait time: " << MaxTimePart-copy_MaxTimePart << endl;
 		cout << "Load_order is: " << printout_loadOrder << endl;
@@ -362,6 +372,7 @@ void product_worker(int id){
 		  }
 		  return false;
 		};
+		vector<int> save_maxDeliver = pickup_order;
 		int copy_MaxTimeProduct = MaxTimeProduct;
 		if(has_left(pickup_order)){
 			auto begin_time = chrono::steady_clock::now();
@@ -396,10 +407,19 @@ void product_worker(int id){
 		auto current_tp = chrono::steady_clock::now();
 		cout << "Current time: " << chrono::duration_cast<chrono::microseconds>(current_tp-start_tp).count()<<"microseconds"<< endl;
 		if(is_initial(save_pickupOrder)){
-			cout << "Status: " << status_string[0] << endl;
+			cout << "Status: " << status_string[1] <<" from Scratch " << endl;
 		}
 		else{
-			cout << "Status: " << status_string[0] << " from Partial Order " << save_pickupOrder << endl;
+			cout << "Status: " << status_string[1] << " from Partial Order " << save_pickupOrder << endl;
+		}
+		if(is_theSame(pickup_order,save_maxDeliver)&&has_left(pickup_order)){
+			//meaning that there is no change after entering the wait_for
+			//so it must be timed out
+			cout << "Status: " << status_string[3] << endl;
+		}
+		else if(!is_theSame(pickup_order,save_maxDeliver)&&has_left(pickup_order)){
+			//two vectors are different, the max_deliver and final pick up
+			cout << "Status: " << status_string[2] << endl;
 		}
 		cout << "Accumulated wait time: " << MaxTimeProduct-copy_MaxTimeProduct << endl;
 		cout << "Product_worker ID: " << id << ", itertaion " << i << endl;
