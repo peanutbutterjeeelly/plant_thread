@@ -7,8 +7,9 @@
 #include <time.h>
 #include<string>
 #include <ctime>
+//zfang18, NetID=337310566
 using namespace std;
-int cur_time = 0;
+
 vector<int> Global_buffer(5);
 const vector<int> restraints{5,5,4,3,3};
 const vector<int> partW_manufacture_time{50, 50, 60, 60, 70};
