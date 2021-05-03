@@ -12,6 +12,8 @@
 using namespace std;
 
 int total_completed = 0;
+int add_back_time_prod;
+int add_back_time_part;
 vector<int> Global_buffer(5);
 
 const vector<int> restraints{5,5,4,3,3};
@@ -23,7 +25,7 @@ const vector<string> status_string{"New Load Order","New Pickup Order",
 const int MaxTimePart{1600};
 const int MaxTimeProduct{2000};
 
-mutex m1;
+mutex m1,m2;
 condition_variable partW, productW;
 
 template<class T>
@@ -37,6 +39,7 @@ ostream& operator<<(ostream& str, const vector<T>& vec)
 	return str;
 }
 vector<int> operator+(const vector<int>&order, const vector<int>& buffer_state){
+	unique_lock<mutex> u2(m2);
 	vector<int> res(order.size());
 	for(int i=0;i<order.size();i++){
 		res[i]=order[i]+buffer_state[i];
@@ -44,6 +47,7 @@ vector<int> operator+(const vector<int>&order, const vector<int>& buffer_state){
 	return res;
 }
 vector<int> operator-(const vector<int>& buffer_state, const vector<int>&order){
+	unique_lock<mutex> u2(m2);
 	vector<int> res(order.size());
 	for(int i=0;i<order.size();i++){
 		res[i]=buffer_state[i]-order[i];
@@ -282,9 +286,7 @@ void part_worker(int id)
 			while (1) {
 				auto cycle_begin = chrono::steady_clock::now();
 				if (has_left(load_order) && partW.wait_for(u1, chrono::microseconds(copy_MaxTimePart), myPred)) {
-					//while load_order is not empty also part_worker is not blocked when
-					//global_buffer has avail spot to place part
-//					cout << "something running partWorker" << endl;
+					auto add_back_begin = chrono::steady_clock::now();
 					//productW.notify_one();
 					for (int i = 0; i<5; i++) {
 						if (load_order[i]>0 && Global_buffer[i]<restraints[i]) {
@@ -304,11 +306,13 @@ void part_worker(int id)
 							this_thread::sleep_for(chrono::microseconds(move_time[i]));
 						}
 					}
+					auto add_back_end = chrono::steady_clock::now();
+					add_back_time_part = chrono::duration_cast<chrono::microseconds>(add_back_end-add_back_begin).count();
 				}
 				auto cycle_end = chrono::steady_clock::now();
 				auto cycle_time = cycle_end-cycle_begin;
 				auto cycle_elapsed = chrono::duration_cast<chrono::microseconds>(cycle_time);
-				copy_MaxTimePart -= cycle_elapsed.count();
+				copy_MaxTimePart =copy_MaxTimePart- cycle_elapsed.count()+add_back_time_part;
 				//cout << "cycle_elapsed.count() " << cycle_elapsed.count()<< endl;
 				if (chrono::steady_clock::now()>begin_time+chrono::microseconds(MaxTimePart)) {
 					//timeout, break
@@ -442,6 +446,7 @@ void product_worker(int id){
 				auto cycle_begin = chrono::steady_clock::now();
 				if (has_left(pickup_order)
 						&& productW.wait_for(u1, chrono::microseconds(copy_MaxTimeProduct), mypred)) {
+					auto add_back_begin = chrono::steady_clock::now();
 					//partW.notify_one();
 					for (int i = 0; i<5; i++) {
 						if (pickup_order[i]>0 && Global_buffer[i]>0) {
@@ -491,11 +496,13 @@ void product_worker(int id){
 							cout << "Total Completed: " << total_completed << endl << endl;
 						}
 					}
+					auto add_back_end = chrono::steady_clock::now();
+					add_back_time_prod = chrono::duration_cast<chrono::microseconds>(add_back_end-add_back_begin).count();
 				}
 				auto cycle_end = chrono::steady_clock::now();
 				auto cycle_time = cycle_end-cycle_begin;
 				auto cycle_elapsed = chrono::duration_cast<chrono::microseconds>(cycle_time);
-				copy_MaxTimeProduct -= cycle_elapsed.count();
+				copy_MaxTimeProduct = copy_MaxTimeProduct-cycle_elapsed.count()+add_back_time_prod;
 
 				if (chrono::steady_clock::now()>begin_time+chrono::microseconds(MaxTimeProduct)) {
 					//timeout
